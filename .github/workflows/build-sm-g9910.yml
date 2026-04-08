@@ -27,8 +27,15 @@ jobs:
             setup_url: "https://raw.githubusercontent.com/backslashxx/KernelSU/master/kernel/setup.sh"
             branch: "master"
             zip_suffix: "xxKSU-SUSFS"
+          - type: xxKSU-Hookless
+            setup_url: "https://raw.githubusercontent.com/backslashxx/KernelSU/master/kernel/setup.sh"
+            branch: "master"
+            zip_suffix: "xxKSU-Hookless"
 
     steps:
+    - name: Checkout
+      uses: actions/checkout@v6
+
     - name: Install Build Dependencies
       run: |
         sudo apt-get update
@@ -38,19 +45,12 @@ jobs:
           gcc-aarch64-linux-gnu gcc-arm-linux-gnueabi \
           libssl-dev libelf-dev clang lld llvm \
           python-is-python3 libc6-dev-i386 cpio lz4
-          
+
     - name: Setup Android Clang Toolchain
       run: |
         mkdir -p ${GITHUB_WORKSPACE}/clang
-        cd ${GITHUB_WORKSPACE}/clang
-        git init
-        git remote add origin https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86
-        git config core.sparseCheckout true
-        echo "clang-r416183b/*" >> .git/info/sparse-checkout
-        git fetch --progress --depth=1 origin tag android-12.0.0_r32
-        git checkout FETCH_HEAD
-        mv clang-r416183b/* .
-        rm -rf .git clang-r416183b
+        tar -xz -f ${GITHUB_WORKSPACE}/tools/linux-x86-bd96dfe349c962681f0e5388af874c771ef96670-clang-r416183b.tar.gz \
+          -C ${GITHUB_WORKSPACE}/clang --strip-components=1
         echo "CLANG_PATH=${GITHUB_WORKSPACE}/clang/bin" >> $GITHUB_ENV
     
     - name: Clone Sources
@@ -97,6 +97,16 @@ jobs:
             CONFIG_KSU_SUSFS_OPEN_REDIRECT=y \
             CONFIG_TMPFS_XATTR=y \
             CONFIG_TMPFS_POSIX_ACL=y; do
+            echo "$cfg" >> "$DEFCONFIG"
+          done
+        fi
+
+        if [ "${{ matrix.build.type }}" == "xxKSU-Hookless" ]; then
+          for cfg in \
+            CONFIG_KSU_EXTRAS=y \
+            CONFIG_KSU_TAMPER_SYSCALL_TABLE=y \
+            CONFIG_KSU_LSM_SECURITY_HOOKS=y \
+            CONFIG_KSU_THRONE_TRACKER_ALWAYS_THREADED=y; do
             echo "$cfg" >> "$DEFCONFIG"
           done
         fi
