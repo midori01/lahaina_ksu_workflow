@@ -48,12 +48,11 @@ jobs:
           libssl-dev libelf-dev clang lld llvm ninja-build protobuf-compiler zipalign \
           python-is-python3 libc6-dev-i386 cpio lz4
 
-    - name: Fetch AOSP Clang Toolchain
+    - name: Setup Android Clang Toolchain
       run: |
         mkdir -p ${GITHUB_WORKSPACE}/clang
-        wget https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/refs/heads/main/clang-r530567.tar.gz -O aosp-clang.tar.gz
-        tar -xf aosp-clang.tar.gz -C ${GITHUB_WORKSPACE}/clang
-        rm -rf aosp-clang.tar.gz
+        tar -xz -f ${GITHUB_WORKSPACE}/tools/linux-x86-bd96dfe349c962681f0e5388af874c771ef96670-clang-r416183b.tar.gz \
+          -C ${GITHUB_WORKSPACE}/clang --strip-components=1
         echo "CLANG_PATH=${GITHUB_WORKSPACE}/clang/bin" >> $GITHUB_ENV
     
     - name: Clone Sources
