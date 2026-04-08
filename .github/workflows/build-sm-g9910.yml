@@ -1,0 +1,204 @@
+name: Build SM-G9910 Kernel
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_name:
+        description: "Release Title"
+        required: true
+        default: "test"
+
+permissions:
+  contents: write
+  actions: write
+
+jobs:
+  build:
+    name: Build ${{ matrix.build.type }}
+    runs-on: ubuntu-22.04
+    strategy:
+      fail-fast: false
+      matrix:
+        build:
+          - type: MidoriXX
+            setup_url: "https://raw.githubusercontent.com/azkx/KernelSU/main/kernel/setup.sh"
+            zip_suffix: "MidoriSU"
+          - type: xxKSU+SUSFS
+            setup_url: "https://raw.githubusercontent.com/backslashxx/KernelSU/master/kernel/setup.sh"
+            branch: "master"
+            zip_suffix: "xxKSU-SUSFS"
+
+    steps:
+    - name: Install Build Dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          build-essential bc flex bison file tar \
+          wget curl git zip unzip bc vim \
+          gcc-aarch64-linux-gnu gcc-arm-linux-gnueabi \
+          libssl-dev libelf-dev clang lld llvm \
+          python-is-python3 libc6-dev-i386 cpio lz4
+
+    - name: Setup Android Clang Toolchain
+      run: |
+        wget https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/bd96dfe349c962681f0e5388af874c771ef96670/clang-r416183b.tar.gz -O clang.tar.gz
+        mkdir -p ${GITHUB_WORKSPACE}/clang
+        tar -xf clang.tar.gz -C ${GITHUB_WORKSPACE}/clang
+        echo "CLANG_PATH=${GITHUB_WORKSPACE}/clang/bin" >> $GITHUB_ENV
+
+    - name: Clone Sources
+      run: |
+        git clone --depth=1 https://github.com/osm0sis/AnyKernel3.git AK3
+        git clone --depth=1 https://github.com/yapixel/kernel_patches.git -b dev yapixel_patches
+        git clone --depth=1 https://github.com/midori01/SM-G9910_Kernel common
+        echo "kernel_dir=$PWD/common" >> $GITHUB_ENV
+
+    - name: Clone SUSFS (v1.5.5)
+      if: matrix.build.type == 'xxKSU+SUSFS'
+      run: |
+        git clone --depth=1 https://gitlab.com/simonpunk/susfs4ksu.git -b kernel-5.4 susfs
+        cd susfs
+        git reset --hard 0bdac91fbf158b31a7ff837d28a2c0fed2a98630
+        cd ..
+
+    - name: Setup KernelSU
+      run: |
+        cd common
+        curl -LSs "${{ matrix.build.setup_url }}" | bash -s ${{ matrix.build.branch }}
+
+    - name: Apply xxKSU De-inlined SUSFS Patch
+      if: matrix.build.type == 'xxKSU+SUSFS'
+      run: |
+        cd common/KernelSU
+        patch -p1 < "../../yapixel_patches/xxksu/0001-xxKSU-kernel-implement-susfs-v2.1.0-De-inlined.patch"
+
+    - name: Setup Kernel Configs
+      run: |
+        cd common
+        DEFCONFIG="arch/arm64/configs/vendor/o1q_chn_hkx_defconfig"
+
+        echo "CONFIG_KSU=y" >> "$DEFCONFIG"
+
+        if [ "${{ matrix.build.type }}" == "xxKSU+SUSFS" ]; then
+          for cfg in \
+            CONFIG_KSU_LSM_SECURITY_HOOKS=y \
+            CONFIG_KSU_SUSFS=y \
+            CONFIG_KSU_SUSFS_SUS_PATH=y \
+            CONFIG_KSU_SUSFS_SUS_MOUNT=y \
+            CONFIG_KSU_SUSFS_SUS_KSTAT=y \
+            CONFIG_KSU_SUSFS_SPOOF_UNAME=y \
+            CONFIG_KSU_SUSFS_OPEN_REDIRECT=y \
+            CONFIG_TMPFS_XATTR=y \
+            CONFIG_TMPFS_POSIX_ACL=y; do
+            echo "$cfg" >> "$DEFCONFIG"
+          done
+        fi
+
+        echo "CONFIG_WERROR=n" >> "$DEFCONFIG"
+
+        # KPROBES break things on Sultan
+        sed -i 's/CONFIG_KPROBES=y/# CONFIG_KPROBES is not set/' "$DEFCONFIG"
+        sed -i '/CONFIG_KPROBES/d' "$DEFCONFIG"
+
+    - name: Apply SUSFS Base Patches and xxKSU Fixups
+      if: matrix.build.type == 'xxKSU+SUSFS'
+      run: |
+        cd common
+
+        # 1. Apply SUSFS base patch
+        cp ../susfs/kernel_patches/fs/* fs/ || true
+        cp ../susfs/kernel_patches/include/linux/* include/linux/ || true
+        patch -p1 --fuzz=6 < ../susfs/kernel_patches/50_add_susfs_in_kernel-5.4.patch || true
+
+    - name: Apply sigtramp Fixup
+      run: |
+        cd common
+        if [ -f "arch/arm64/kernel/vdso/sigreturn.S" ]; then
+          sed -i 's/^[ \t]*sigtramp:/.global sigtramp\nsigtramp:/g' arch/arm64/kernel/vdso/sigreturn.S || true
+        fi
+        sed -i '/#include <asm\/vdso.h>/a #ifndef vdso_offset_sigtramp\n#define vdso_offset_sigtramp 0x0800\n#endif' \
+          arch/arm64/kernel/signal.c
+
+    - name: Compile Kernel
+      working-directory: common
+      env:
+        PATH: ${{ env.CLANG_PATH }}:${{ github.workspace }}/scripts:/usr/bin:/bin
+      run: |
+        chmod -R +x scripts/
+        [ ! -f "scripts/secgetspf" ] && echo "echo ''" > scripts/secgetspf && chmod +x scripts/secgetspf
+
+        export ARCH=arm64
+        export SUBARCH=arm64
+        export MAKE_ARGS="LLVM=1 LLVM_IAS=1 O=out \
+          CROSS_COMPILE=aarch64-linux-gnu- \
+          CROSS_COMPILE_ARM32=arm-linux-gnueabi- \
+          CC=clang LD=ld.lld \
+          AR=llvm-ar NM=llvm-nm \
+          OBJCOPY=llvm-objcopy OBJDUMP=llvm-objdump STRIP=llvm-strip"
+
+        make $MAKE_ARGS vendor/o1q_chn_hkx_defconfig
+        make $MAKE_ARGS \
+          KCFLAGS="-Wno-error -Wno-unused-variable -Wno-unused-function -Wno-format-security -Wno-pointer-sign -Wno-strict-prototypes -Wno-vla -Wno-vla-extension" \
+          -j$(nproc --all)
+
+    - name: Package with AnyKernel3
+      run: |
+        export PATH=${CLANG_PATH}:${GITHUB_WORKSPACE}/scripts:$PATH
+        export ARCH=arm64
+        export MAKE_ARGS="LLVM=1 LLVM_IAS=1 O=out \
+          CROSS_COMPILE=aarch64-linux-gnu- \
+          CROSS_COMPILE_ARM32=arm-linux-gnueabi- \
+          CC=clang LD=ld.lld \
+          AR=llvm-ar NM=llvm-nm \
+          OBJCOPY=llvm-objcopy OBJDUMP=llvm-objdump STRIP=llvm-strip"
+
+        mkdir -p common/out/installed_modules
+        make -C common $MAKE_ARGS INSTALL_MOD_PATH=installed_modules modules_install
+
+        if [ -f "common/out/arch/arm64/boot/Image.lz4" ]; then
+          cp common/out/arch/arm64/boot/Image.lz4 AK3/
+        elif [ -f "common/out/arch/arm64/boot/Image" ]; then
+          cp common/out/arch/arm64/boot/Image AK3/
+        fi
+        find common/out -name "*.dtb" -exec cat {} + > AK3/dtb || true
+
+        mkdir -p AK3/modules/system/lib/modules
+        find common/out/installed_modules/lib/modules/ -name "*.ko" \
+          -exec cp {} AK3/modules/system/lib/modules/ \; || true
+
+        cd AK3
+        sed -i 's/device.name1=.*/device.name1=g9910/g' anykernel.sh
+        sed -i 's/device.name2=.*/device.name2=SM-G9910/g' anykernel.sh
+
+        DATE=$(date +'%Y%m%d_%H%M')
+        ZIP_NAME="SM-G9910-${{ matrix.build.zip_suffix }}-${DATE}.zip"
+        zip -r9 ../$ZIP_NAME * -x .git README.md '*placeholder'
+        echo "ZIP_FILE=$ZIP_NAME" >> $GITHUB_ENV
+
+    - name: Upload Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ env.ZIP_FILE }}
+        path: ${{ env.ZIP_FILE }}
+
+  release:
+    needs: build
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: write
+    steps:
+    - name: Download Build Artifacts
+      uses: actions/download-artifact@v4
+      with:
+        path: artifacts
+    - name: Generate Tag
+      id: tag
+      run: echo "tag=CI_$(date +'%Y.%m.%d-%H%M')" >> $GITHUB_OUTPUT
+    - name: Publish Release
+      uses: softprops/action-gh-release@v2.6.1
+      with:
+        tag_name: ${{ steps.tag.outputs.tag }}
+        name: ${{ github.event.inputs.release_name }}
+        files: artifacts/**/*.zip
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
