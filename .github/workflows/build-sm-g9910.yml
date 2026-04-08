@@ -38,14 +38,21 @@ jobs:
           gcc-aarch64-linux-gnu gcc-arm-linux-gnueabi \
           libssl-dev libelf-dev clang lld llvm \
           python-is-python3 libc6-dev-i386 cpio lz4
-
+          
     - name: Setup Android Clang Toolchain
       run: |
-        wget https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/bd96dfe349c962681f0e5388af874c771ef96670/clang-r416183b.tar.gz -O clang.tar.gz
         mkdir -p ${GITHUB_WORKSPACE}/clang
-        tar -xf clang.tar.gz -C ${GITHUB_WORKSPACE}/clang
+        cd ${GITHUB_WORKSPACE}/clang
+        git init
+        git remote add origin https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86
+        git config core.sparseCheckout true
+        echo "clang-r416183b/*" >> .git/info/sparse-checkout
+        git fetch --progress --depth=1 origin tag android-12.0.0_r32
+        git checkout FETCH_HEAD
+        mv clang-r416183b/* .
+        rm -rf .git clang-r416183b
         echo "CLANG_PATH=${GITHUB_WORKSPACE}/clang/bin" >> $GITHUB_ENV
-
+    
     - name: Clone Sources
       run: |
         git clone --depth=1 https://github.com/osm0sis/AnyKernel3.git AK3
