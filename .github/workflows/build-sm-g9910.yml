@@ -63,7 +63,7 @@ jobs:
     - name: Clone SUSFS (v1.5.5)
       if: matrix.build.type == 'xxKSU+SUSFS'
       run: |
-        git clone --depth=1 https://gitlab.com/simonpunk/susfs4ksu.git -b kernel-5.4 susfs
+        git clone https://gitlab.com/simonpunk/susfs4ksu.git -b kernel-5.4 susfs
         cd susfs
         git reset --hard 0bdac91fbf158b31a7ff837d28a2c0fed2a98630
         cd ..
