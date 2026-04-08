@@ -34,30 +34,31 @@ jobs:
 
     steps:
     - name: Checkout
-      uses: actions/checkout@v6
+      uses: actions/checkout@v4
       with:
         lfs: true
 
     - name: Install Build Dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y \
-          build-essential bc flex bison file tar \
-          wget curl git zip unzip bc vim \
+        DEBIAN_FRONTEND=noninteractive sudo apt-get install -yq \
+          build-essential bc flex bison file tar attr ccache golang libbrotli-dev \
+          wget curl git zip unzip vim libgtest-dev libprotobuf-dev libunwind-dev libusb-1.0-0-dev libzstd-dev \
           gcc-aarch64-linux-gnu gcc-arm-linux-gnueabi \
-          libssl-dev libelf-dev clang lld llvm \
+          libssl-dev libelf-dev clang lld llvm ninja-build protobuf-compiler zipalign \
           python-is-python3 libc6-dev-i386 cpio lz4
 
-    - name: Setup Android Clang Toolchain
+    - name: Fetch AOSP Clang Toolchain
       run: |
         mkdir -p ${GITHUB_WORKSPACE}/clang
-        tar -xz -f ${GITHUB_WORKSPACE}/tools/linux-x86-bd96dfe349c962681f0e5388af874c771ef96670-clang-r416183b.tar.gz \
-          -C ${GITHUB_WORKSPACE}/clang --strip-components=1
+        wget https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/refs/heads/main/clang-r530567.tar.gz -O aosp-clang.tar.gz
+        tar -xf aosp-clang.tar.gz -C ${GITHUB_WORKSPACE}/clang
+        rm -rf aosp-clang.tar.gz
         echo "CLANG_PATH=${GITHUB_WORKSPACE}/clang/bin" >> $GITHUB_ENV
     
     - name: Clone Sources
       run: |
-        git clone --depth=1 https://github.com/osm0sis/AnyKernel3.git AK3
+        git clone https://github.com/LucasBlackLu/AnyKernel3.git -b samsung AK3
         git clone --depth=1 https://github.com/yapixel/kernel_patches.git -b dev yapixel_patches
         git clone --depth=1 https://github.com/midori01/SM-G9910_Kernel common
         echo "kernel_dir=$PWD/common" >> $GITHUB_ENV
@@ -174,24 +175,29 @@ jobs:
         mkdir -p common/out/installed_modules
         make -C common $MAKE_ARGS INSTALL_MOD_PATH=installed_modules modules_install
 
+        # Copy Kernel Image
         if [ -f "common/out/arch/arm64/boot/Image.lz4" ]; then
           cp common/out/arch/arm64/boot/Image.lz4 AK3/
         elif [ -f "common/out/arch/arm64/boot/Image" ]; then
           cp common/out/arch/arm64/boot/Image AK3/
         fi
+        
+        # Copy DTB and DTBO
         find common/out -name "*.dtb" -exec cat {} + > AK3/dtb || true
+        if [ -f "common/out/arch/arm64/boot/dtbo.img" ]; then
+          cp common/out/arch/arm64/boot/dtbo.img AK3/
+        fi
 
-        mkdir -p AK3/modules/system/lib/modules
+        # Create vendor module structure
+        mkdir -p AK3/modules/vendor/lib/modules
         find common/out/installed_modules/lib/modules/ -name "*.ko" \
-          -exec cp {} AK3/modules/system/lib/modules/ \; || true
+          -exec cp {} AK3/modules/vendor/lib/modules/ \; || true
 
+        # Zip it up exactly like the bash script
         cd AK3
-        sed -i 's/device.name1=.*/device.name1=g9910/g' anykernel.sh
-        sed -i 's/device.name2=.*/device.name2=SM-G9910/g' anykernel.sh
-
-        DATE=$(date +'%Y%m%d_%H%M')
-        ZIP_NAME="SM-G9910-${{ matrix.build.zip_suffix }}-${DATE}.zip"
-        zip -r9 ../$ZIP_NAME * -x .git README.md '*placeholder'
+        DATE=$(date +'%d%m%y-%H%M')
+        ZIP_NAME="Lavender_SM-G9910_${{ matrix.build.zip_suffix }}_${DATE}.zip"
+        zip -r9 ../$ZIP_NAME . -x '*.git*' '*patch*' '*ramdisk*' 'LICENSE' 'README.md'
         echo "ZIP_FILE=$ZIP_NAME" >> $GITHUB_ENV
 
     - name: Upload Artifact
@@ -210,6 +216,7 @@ jobs:
       uses: actions/download-artifact@v4
       with:
         path: artifacts
+        merge-multiple: true
     - name: Generate Tag
       id: tag
       run: echo "tag=CI_$(date +'%Y.%m.%d-%H%M')" >> $GITHUB_OUTPUT
@@ -218,6 +225,6 @@ jobs:
       with:
         tag_name: ${{ steps.tag.outputs.tag }}
         name: ${{ github.event.inputs.release_name }}
-        files: artifacts/**/*.zip
+        files: artifacts/*.zip
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
