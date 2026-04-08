@@ -35,6 +35,8 @@ jobs:
     steps:
     - name: Checkout
       uses: actions/checkout@v6
+      with:
+        lfs: true
 
     - name: Install Build Dependencies
       run: |
