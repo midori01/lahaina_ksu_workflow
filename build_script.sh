@@ -26,9 +26,22 @@ case "$DEVICE_MODEL" in
     *) echo "Config not found for $DEVICE_MODEL"; exit 1 ;;
 esac
 
-# Handle xxKSU
+# Handle xxKSU-Hookless
 if [[ "$*" == *"--ksu"* ]]; then
     ZIP_NAME="Lavender_xxKSU_${DEVICE_NAME}_${DEVICE_MODEL}_$(date +%d%m%y-%H%M)"
+    
+    echo "Injecting xxKSU-Hookless configurations into $DEFCONFIG..."
+    cat <<EOF >> arch/arm64/configs/$DEFCONFIG
+CONFIG_KSU=y
+CONFIG_KSU_EXTRAS=y
+CONFIG_KSU_TAMPER_SYSCALL_TABLE=y
+CONFIG_KSU_LSM_SECURITY_HOOKS=y
+CONFIG_KSU_THRONE_TRACKER_ALWAYS_THREADED=y
+EOF
+    
+    # Disable KPROBES to prevent conflicts with the hookless implementation
+    sed -i 's/CONFIG_KPROBES=y/# CONFIG_KPROBES is not set/' arch/arm64/configs/$DEFCONFIG
+
     if [ ! -d "KernelSU" ]; then
         echo "Fetching xxKSU..."
         curl -LSs "https://raw.githubusercontent.com/backslashxx/KernelSU/master/kernel/setup.sh" | bash -s master
