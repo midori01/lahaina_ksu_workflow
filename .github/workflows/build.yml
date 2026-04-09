@@ -36,18 +36,22 @@ jobs:
           
       - name: Clone Kernel Source
         run: |
-          # Swapped to your new LucasBlackLu repository
+          # Clones your kernel repo into a folder named "kernel_workspace"
           git clone --depth=1 https://github.com/LucasBlackLu/android_kernel_samsung_sm8350 kernel_workspace
           
       - name: Build Kernel With xxKSU
         run: |
-          # Make the script executable
-          chmod +x ./build_script.sh
-          # Move the script into the kernel source directory
+          # 1. Copy the script into the downloaded kernel folder
           cp ./build_script.sh kernel_workspace/
-          # Enter the directory and run the build
+          
+          # 2. Go into that folder
           cd kernel_workspace
-          ./build_script.sh SM-G9910 --ksu
+          
+          # 3. Give the script permission to execute AFTER moving it
+          chmod +x build_script.sh
+          
+          # 4. Run the script explicitly with bash to avoid Error 126
+          bash build_script.sh SM-G9910 --ksu
           
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
