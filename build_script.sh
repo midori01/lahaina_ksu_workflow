@@ -61,15 +61,15 @@ if [ "$KSU" == "true" ]; then
     echo "CONFIG_KSU_THRONE_TRACKER_ALWAYS_THREADED=y" >> arch/arm64/configs/$DEFCONFIG
     sed -i 's/CONFIG_KPROBES=y/# CONFIG_KPROBES is not set/' arch/arm64/configs/$DEFCONFIG
 
-    # Apply xxKSU manual hook patches (scope-minimized v1.8 + v1.9)
+    # Apply xxKSU manual hook patches into drivers/kernelsu (scope-minimized v1.8 + v1.9)
     # v1.8: execve, faccessat, newfstatat, reboot hooks
     # v1.9: newfstat ret hook (needed since KProbes is disabled)
     PATCH_BASE="https://raw.githubusercontent.com/yapixel/kernel_patches/dev/midorisu"
     echo "Applying xxKSU manual hook patches..."
 
     curl -sSL "$PATCH_BASE/manual-security-hooks-v1.8.patch" -o /tmp/manual-security-hooks-v1.8.patch
-    if patch -p1 --dry-run < /tmp/manual-security-hooks-v1.8.patch &>/dev/null; then
-        patch -p1 < /tmp/manual-security-hooks-v1.8.patch
+    if patch -p1 -d "$SRC_DIR/drivers/kernelsu" --dry-run < /tmp/manual-security-hooks-v1.8.patch &>/dev/null; then
+        patch -p1 -d "$SRC_DIR/drivers/kernelsu" < /tmp/manual-security-hooks-v1.8.patch
         echo "Applied: manual-security-hooks-v1.8.patch"
     else
         echo "ERROR: manual-security-hooks-v1.8.patch failed dry-run, aborting!" >&2
@@ -77,8 +77,8 @@ if [ "$KSU" == "true" ]; then
     fi
 
     curl -sSL "$PATCH_BASE/scope-min-manual-hooks-v1.9.patch" -o /tmp/scope-min-manual-hooks-v1.9.patch
-    if patch -p1 --dry-run < /tmp/scope-min-manual-hooks-v1.9.patch &>/dev/null; then
-        patch -p1 < /tmp/scope-min-manual-hooks-v1.9.patch
+    if patch -p1 -d "$SRC_DIR/drivers/kernelsu" --dry-run < /tmp/scope-min-manual-hooks-v1.9.patch &>/dev/null; then
+        patch -p1 -d "$SRC_DIR/drivers/kernelsu" < /tmp/scope-min-manual-hooks-v1.9.patch
         echo "Applied: scope-min-manual-hooks-v1.9.patch"
     else
         echo "ERROR: scope-min-manual-hooks-v1.9.patch failed dry-run, aborting!" >&2
