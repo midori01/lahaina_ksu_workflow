@@ -1,73 +1,132 @@
-name: Build SM-G9910 xxKSU Kernel
+name: Build Kernel with MidoriXX
+
 on:
   workflow_dispatch:
     inputs:
+      include_ksu:
+        description: "MidoriXX"
+        type: boolean
+        default: true
       release_name:
         description: "Release Title"
         required: true
-        default: "SM-G9910 xxKSU Kernel"
+        default: "test"
+
 jobs:
-  build_kernel:
-    runs-on: ubuntu-latest
+  build:
+    name: Compile Kernel
+    runs-on: ubuntu-22.04
+
+    steps:
+    - name: Checkout Kernel Source
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 1
+
+    - name: Install Build Dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          build-essential bc flex bison file tar \
+          wget curl git zip unzip bc vim \
+          gcc-aarch64-linux-gnu gcc-arm-linux-gnueabi \
+          libssl-dev libelf-dev clang lld llvm \
+          python-is-python3 libc6-dev-i386 cpio lz4
+
+    - name: Setup Android Clang Toolchain
+      run: |
+        mkdir -p ${GITHUB_WORKSPACE}/clang
+        cd ${GITHUB_WORKSPACE}/clang
+        git init
+        git remote add origin https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86
+        git config core.sparseCheckout true
+        echo "clang-r416183b/*" >> .git/info/sparse-checkout
+        git fetch --progress --depth=1 origin tag android-12.0.0_r32
+        git checkout FETCH_HEAD
+        mv clang-r416183b/* .
+        rm -rf .git clang-r416183b
+
+    - name: Setup MidoriXX
+      if: ${{ github.event.inputs.include_ksu == 'true' }}
+      run: |
+        curl -LSs "https://raw.githubusercontent.com/azkx/KernelSU/main/kernel/setup.sh" | bash -
+        
+    - name: Compile Kernel
+      run: |
+        chmod -R +x scripts/
+        [ ! -f "scripts/secgetspf" ] && echo "echo ''" > scripts/secgetspf && chmod +x scripts/secgetspf
+        
+        if [ -f "arch/arm64/kernel/vdso/sigreturn.S" ]; then
+          sed -i 's/^[ \t]*sigtramp:/.global sigtramp\nsigtramp:/g' arch/arm64/kernel/vdso/sigreturn.S || true
+        fi
+        sed -i '/#include <asm\/vdso.h>/a #ifndef vdso_offset_sigtramp\n#define vdso_offset_sigtramp 0x0800\n#endif' arch/arm64/kernel/signal.c
+        
+        export PATH=${GITHUB_WORKSPACE}/clang/bin:${GITHUB_WORKSPACE}/scripts:$PATH
+        export ARCH=arm64
+        export SUBARCH=arm64
+        export MAKE_ARGS="LLVM=1 LLVM_IAS=1 O=out CROSS_COMPILE=aarch64-linux-gnu- CROSS_COMPILE_ARM32=arm-linux-gnueabi- CC=clang LD=ld.lld AR=llvm-ar NM=llvm-nm OBJCOPY=llvm-objcopy OBJDUMP=llvm-objdump STRIP=llvm-strip"
+        
+        make $MAKE_ARGS vendor/o1q_chn_hkx_defconfig
+        
+        if [ "${{ github.event.inputs.include_ksu }}" == "true" ]; then
+          echo "CONFIG_KSU=y" >> out/.config
+        fi
+        
+        make $MAKE_ARGS KCFLAGS="-Wno-error -Wno-unused-variable -Wno-unused-function -Wno-format-security -Wno-pointer-sign -Wno-strict-prototypes -Wno-vla -Wno-vla-extension" -j$(nproc --all)
+        
+    - name: Package with AnyKernel3
+      run: |
+        export PATH=${GITHUB_WORKSPACE}/clang/bin:${GITHUB_WORKSPACE}/scripts:$PATH
+        export ARCH=arm64
+        export MAKE_ARGS="LLVM=1 LLVM_IAS=1 O=out CROSS_COMPILE=aarch64-linux-gnu- CROSS_COMPILE_ARM32=arm-linux-gnueabi- CC=clang LD=ld.lld AR=llvm-ar NM=llvm-nm OBJCOPY=llvm-objcopy OBJDUMP=llvm-objdump STRIP=llvm-strip"
+        
+        mkdir -p out/installed_modules
+        make $MAKE_ARGS INSTALL_MOD_PATH=installed_modules modules_install
+        
+        git clone https://github.com/osm0sis/AnyKernel3.git AnyKernel3
+        [ -f "out/arch/arm64/boot/Image" ] && cp out/arch/arm64/boot/Image AnyKernel3/
+        
+        mkdir -p AnyKernel3/modules/system/lib/modules
+        find out/installed_modules/lib/modules/ -name "*.ko" -exec cp {} AnyKernel3/modules/system/lib/modules/ \;
+        
+        cd AnyKernel3
+        sed -i 's/device.name1=.*/device.name1=g9910/g' anykernel.sh
+        sed -i 's/device.name2=.*/device.name2=SM-G9910/g' anykernel.sh
+        
+        DATE=$(date +'%Y%m%d_%H%M')
+        if [ "${{ github.event.inputs.include_ksu }}" == "true" ]; then
+          ZIP_NAME="SM-G9910-MidoriSU-${DATE}.zip"
+        else
+          ZIP_NAME="SM-G9910-${DATE}.zip"
+        fi
+        
+        zip -r9 ../$ZIP_NAME * -x .git README.md *placeholder
+        echo "ZIP_FILE=$ZIP_NAME" >> $GITHUB_ENV
+
+    - name: Upload Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ env.ZIP_FILE }}
+        path: ${{ env.ZIP_FILE }}
+
+  release:
+    needs: build
+    runs-on: ubuntu-22.04
     permissions:
       contents: write
     steps:
-      - name: Checkout repo
-        uses: actions/checkout@v4
-        
-      - name: Set up Git
-        run: |
-          git config --global user.name "github-actions[bot]"
-          git config --global user.email "github-actions[bot]@users.noreply.github.com"
-
-      - name: Set up build environment
-        run: |
-          sudo apt update
-          DEBIAN_FRONTEND=noninteractive sudo apt install -yq \
-            attr ccache clang golang libbrotli-dev \
-            libgtest-dev libprotobuf-dev libunwind-dev libusb-1.0-0-dev libzstd-dev \
-            linux-modules-extra-$(uname -r) build-essential lld ninja-build protobuf-compiler \
-            zipalign gcc-aarch64-linux-gnu zip unzip curl git
-          
-      - name: Fetch AOSP Clang
-        run: |
-          wget https://github.com/midori01/lahaina_ksu_workflow/raw/refs/heads/main/tools/linux-x86-refs_heads_main-clang-r530567.tar.gz -O aosp-clang.tar.gz
-          mkdir -p ${{ github.workspace }}/clang
-          tar -xf aosp-clang.tar.gz -C ${{ github.workspace }}/clang
-          echo "${{ github.workspace }}/clang/bin" >> $GITHUB_PATH
-          echo "CLANG_PATH=${{ github.workspace }}/clang" >> $GITHUB_ENV
-          
-      - name: Clone Kernel Source
-        run: |
-          git clone --depth=1 https://github.com/midori01/SM-G9910_Kernel kernel_workspace
-
-      - name: Build Kernel With xxKSU
-        run: |
-          cp ./build_release_script.sh kernel_workspace/
-          cd kernel_workspace
-          chmod +x build_release_script.sh
-          ./build_release_script.sh SM-G9910 --ksu
-
-      - name: Check and Move Artifacts
-        run: |
-          ls -l kernel_workspace/*.zip
-          
-      - name: Upload Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: SM-G9910-xxKSU-Kernel
-          path: kernel_workspace/Midori*.zip
-
-      - name: Publish to GitHub Releases
-        uses: softprops/action-gh-release@v2
-        with:
-          files: kernel_workspace/Midori*.zip
-          name: ${{ github.event.inputs.release_name }}
-          tag_name: CI_${{ github.run_id }}
-          body: |
-            Device: SM-G9910 (Snapdragon)
-            Variant: xxKSU (Hookless)
-            Compiler: AOSP clang-r530567
-            Source: midori01/SM-G9910_Kernel
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    - name: Download Build Artifacts
+      uses: actions/download-artifact@v4
+      with:
+        path: artifacts
+    - name: Generate Tag
+      id: tag
+      run: echo "tag=CI_$(date +'%Y.%m.%d-%H%M')" >> $GITHUB_OUTPUT
+    - name: Publish Release
+      uses: softprops/action-gh-release@v2
+      with:
+        tag_name: ${{ steps.tag.outputs.tag }}
+        name: ${{ github.event.inputs.release_name }}
+        files: artifacts/**/*.zip
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
