@@ -1,0 +1,69 @@
+name: Build SM-G9910 Kernel
+on:
+  workflow_dispatch:
+    inputs:
+      release_name:
+        description: "Release Title"
+        required: true
+        default: "MidoriXX"
+jobs:
+  build_kernel:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+        
+      - name: Set up build environment
+        run: |
+          sudo apt update
+          DEBIAN_FRONTEND=noninteractive sudo apt install -yq \
+            attr ccache clang golang libbrotli-dev \
+            libgtest-dev libprotobuf-dev libunwind-dev libusb-1.0-0-dev libzstd-dev \
+            linux-modules-extra-$(uname -r) build-essential lld ninja-build protobuf-compiler \
+            zipalign gcc-aarch64-linux-gnu zip unzip curl git
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          
+      - name: Fetch AOSP Clang
+        run: |
+          wget https://github.com/midori01/lahaina_ksu_workflow/raw/refs/heads/main/tools/linux-x86-refs_heads_main-clang-r530567.tar.gz -O aosp-clang.tar.gz
+          mkdir -p ${{ github.workspace }}/clang
+          tar -xf aosp-clang.tar.gz -C ${{ github.workspace }}/clang
+          echo "${{ github.workspace }}/clang/bin" >> $GITHUB_PATH
+          echo "CLANG_PATH=${{ github.workspace }}/clang" >> $GITHUB_ENV
+          
+      - name: Clone Kernel Source
+        run: |
+          git clone --depth=1 https://github.com/LucasBlackLu/android_kernel_samsung_sm8350 kernel_workspace
+          
+      - name: Build Kernel With xxKSU
+        run: |
+          cp ./build.sh kernel_workspace/
+          cd kernel_workspace
+          chmod +x build.sh
+          bash build.sh SM-G9910 --ksu
+
+      - name: Move zip to workspace root
+        run: mv kernel_workspace/AnyKernel3/Midori*.zip kernel_workspace/
+          
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: SM-G9910-xxKSU-Kernel
+          path: kernel_workspace/*.zip
+
+      - name: Publish to GitHub Releases
+        uses: softprops/action-gh-release@v2
+        with:
+          files: kernel_workspace/*.zip
+          name: ${{ github.event.inputs.release_name }}
+          tag_name: CI_${{ github.run_id }}
+          body: |
+            Device: SM-G9910 (o1q)
+            Variant: MidoriXX (xxKSU)
+            Compiler: AOSP clang-r530567
+            Source: LucasBlackLu/android_kernel_samsung_sm8350
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
