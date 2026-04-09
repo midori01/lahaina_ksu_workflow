@@ -133,7 +133,7 @@ else
     cp ./out/arch/arm64/boot/Image ./AnyKernel3/
     cp ./out/arch/arm64/boot/dtbo.img ./AnyKernel3/
     cd AnyKernel3
-    rm -rf Lavender*
+    rm -rf Midori*
     zip -r9 $ZIP_NAME . -x '*.git*' '*patch*' '*ramdisk*' 'LICENSE' 'README.md'
     cd ..
 fi
