@@ -9,7 +9,7 @@ SRC_DIR=$(pwd)
 TC_DIR=${CLANG_PATH:-$SRC_DIR/clang}
 JOBS="$(nproc --all)"
 
-MAKE_PARAMS="-j$JOBS -C $SRC_DIR O=$SRC_DIR/out ARCH=arm64 CC=clang CLANG_TRIPLE=aarch64-linux-gnu- LLVM=1 CROSS_COMPILE=aarch64-linux-gnu- CROSS_COMPILE_ARM32=arm-linux-gnueabi-"
+MAKE_PARAMS="-j$JOBS -C $SRC_DIR O=$SRC_DIR/out ARCH=arm64 CC=clang CLANG_TRIPLE=aarch64-linux-gnu- LLVM=1 LLVM_IAS=1 CROSS_COMPILE=aarch64-linux-gnu- CROSS_COMPILE_ARM32=arm-linux-gnueabi- LD=ld.lld"
 export PATH="$TC_DIR/bin:$PATH"
 
 find "$SRC_DIR/scripts" -type f -name "*.sh" -exec chmod +x {} +
