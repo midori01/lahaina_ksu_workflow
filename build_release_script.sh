@@ -14,7 +14,7 @@ export PATH="$TC_DIR/bin:$PATH"
 
 if [[ "$*" == *"--ksu"* ]]; then
     KSU=true
-    ZIP_NAME="Lavender_KSU_${DEVICE_NAME}_$(date +%d%m%y-%H%M)"
+    ZIP_NAME="Midori_KSU_${DEVICE_NAME}_$(date +%d%m%y-%H%M)"
     
     if [ ! -d "KernelSU" ]; then
         curl -LSs "https://raw.githubusercontent.com/backslashxx/KernelSU/master/kernel/setup.sh" | bash -s master
@@ -27,7 +27,7 @@ if [[ "$*" == *"--ksu"* ]]; then
     done
 else
     KSU=false
-    ZIP_NAME="Lavender_${DEVICE_NAME}_$(date +%d%m%y-%H%M)"
+    ZIP_NAME="Midori_${DEVICE_NAME}_$(date +%d%m%y-%H%M)"
     git checkout "$DEFCONFIG_PATH" 2>/dev/null
 fi
 
@@ -50,6 +50,6 @@ cp out/arch/arm64/boot/Image AnyKernel3/
 [ -f out/arch/arm64/boot/dtbo.img ] && cp out/arch/arm64/boot/dtbo.img AnyKernel3/
 
 cd AnyKernel3
-rm -rf Lavender*
+rm -rf Midori*
 zip -r9 "../${ZIP_NAME}.zip" . -x '*.git*' '*patch*' '*ramdisk*' 'LICENSE' 'README.md'
 cd ..
