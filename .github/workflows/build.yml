@@ -1,0 +1,62 @@
+name: Build SM-G9910 xxKSU Kernel
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_name:
+        description: "Release Title"
+        required: true
+        default: "SM-G9910 xxKSU Build"
+
+jobs:
+  build_lavender:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+        
+      - name: Set up build environment
+        run: |
+          sudo apt update
+          DEBIAN_FRONTEND=noninteractive sudo apt install -yq \
+            attr ccache clang golang libbrotli-dev \
+            libgtest-dev libprotobuf-dev libunwind-dev libusb-1.0-0-dev libzstd-dev \
+            linux-modules-extra-$(uname -r) build-essential lld ninja-build protobuf-compiler \
+            zipalign gcc-aarch64-linux-gnu zip unzip curl git
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          
+      - name: Fetch AOSP Clang
+        run: |
+          wget https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/refs/heads/main/clang-r530567.tar.gz -O aosp-clang.tar.gz
+          mkdir clang && tar -xf aosp-clang.tar.gz -C clang && rm -rf aosp-clang.tar.gz
+          
+      - name: Make Script Executable
+        run: chmod +x ./build_script.sh
+
+      - name: Build Kernel With xxKSU
+        run: |
+          # Pass the target device and the KSU flag to your script
+          ./build_script.sh SM-G9910 --ksu
+          
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: SM-G9910-xxKSU-Kernel
+          path: Lavender*.zip
+
+      - name: Publish to GitHub Releases
+        uses: softprops/action-gh-release@v2
+        with:
+          files: Lavender*.zip
+          name: ${{ github.event.inputs.release_name }}
+          tag_name: CI_${{ github.run_id }}
+          body: |
+            Device: SM-G9910 (Snapdragon)
+            Variant: xxKSU
+            Compiler: AOSP clang-r530567
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
