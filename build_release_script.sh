@@ -9,8 +9,11 @@ SRC_DIR=$(pwd)
 TC_DIR=${CLANG_PATH:-$SRC_DIR/clang}
 JOBS="$(nproc --all)"
 
-MAKE_PARAMS="-j$JOBS -C $SRC_DIR O=$SRC_DIR/out ARCH=arm64 CC=clang CLANG_TRIPLE=aarch64-linux-gnu- LLVM=1 CROSS_COMPILE=llvm-"
+MAKE_PARAMS="-j$JOBS -C $SRC_DIR O=$SRC_DIR/out ARCH=arm64 CC=clang CLANG_TRIPLE=aarch64-linux-gnu- LLVM=1 CROSS_COMPILE=aarch64-linux-gnu- CROSS_COMPILE_ARM32=arm-linux-gnueabi-"
 export PATH="$TC_DIR/bin:$PATH"
+
+find "$SRC_DIR/scripts" -type f -name "*.sh" -exec chmod +x {} +
+[ -f "$SRC_DIR/scripts/secgetspf" ] && chmod +x "$SRC_DIR/scripts/secgetspf"
 
 if [[ "$*" == *"--ksu"* ]]; then
     KSU=true
@@ -31,9 +34,11 @@ else
     git checkout "$DEFCONFIG_PATH" 2>/dev/null
 fi
 
-make $MAKE_PARAMS "$DEFCONFIG_NAME"
-make $MAKE_PARAMS
-make $MAKE_PARAMS INSTALL_MOD_PATH=modules INSTALL_MOD_STRIP=1 modules_install
+mkdir -p "$SRC_DIR/out"
+
+make $MAKE_PARAMS "$DEFCONFIG_NAME" || exit 1
+make $MAKE_PARAMS || exit 1
+make $MAKE_PARAMS INSTALL_MOD_PATH=modules INSTALL_MOD_STRIP=1 modules_install || exit 1
 
 if [ ! -d "AnyKernel3" ]; then
     git clone https://github.com/LucasBlackLu/AnyKernel3 -b samsung
