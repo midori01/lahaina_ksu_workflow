@@ -32,25 +32,26 @@ jobs:
       - name: Fetch AOSP Clang
         run: |
           wget https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/refs/heads/main/clang-r530567.tar.gz -O aosp-clang.tar.gz
-          mkdir clang && tar -xf aosp-clang.tar.gz -C clang && rm -rf aosp-clang.tar.gz
+          mkdir -p ${{ github.workspace }}/clang
+          tar -xf aosp-clang.tar.gz -C ${{ github.workspace }}/clang
+          # Add Clang binaries to the system PATH globally
+          echo "${{ github.workspace }}/clang/bin" >> $GITHUB_PATH
+          # Set an environment variable for the script to use
+          echo "CLANG_PATH=${{ github.workspace }}/clang" >> $GITHUB_ENV
           
       - name: Clone Kernel Source
         run: |
-          # Clones your kernel repo into a folder named "kernel_workspace"
           git clone --depth=1 https://github.com/LucasBlackLu/android_kernel_samsung_sm8350 kernel_workspace
           
       - name: Build Kernel With xxKSU
         run: |
-          # 1. Copy the script into the downloaded kernel folder
+          # Copy script to the kernel directory
           cp ./build_script.sh kernel_workspace/
           
-          # 2. Go into that folder
           cd kernel_workspace
-          
-          # 3. Give the script permission to execute AFTER moving it
           chmod +x build_script.sh
           
-          # 4. Run the script explicitly with bash to avoid Error 126
+          # Run the script. It will now find the Clang tools via the PATH
           bash build_script.sh SM-G9910 --ksu
           
       - name: Upload Artifact
@@ -67,7 +68,7 @@ jobs:
           tag_name: CI_${{ github.run_id }}
           body: |
             Device: SM-G9910 (Snapdragon)
-            Variant: xxKSU
+            Variant: xxKSU (Hookless)
             Compiler: AOSP clang-r530567
             Source: LucasBlackLu/android_kernel_samsung_sm8350
         env:
