@@ -34,9 +34,8 @@ jobs:
           wget https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/refs/heads/main/clang-r530567.tar.gz -O aosp-clang.tar.gz
           mkdir -p ${{ github.workspace }}/clang
           tar -xf aosp-clang.tar.gz -C ${{ github.workspace }}/clang
-          # Add Clang binaries to the system PATH globally
+          # Set Paths for Global Access
           echo "${{ github.workspace }}/clang/bin" >> $GITHUB_PATH
-          # Set an environment variable for the script to use
           echo "CLANG_PATH=${{ github.workspace }}/clang" >> $GITHUB_ENV
           
       - name: Clone Kernel Source
@@ -51,19 +50,21 @@ jobs:
           cd kernel_workspace
           chmod +x build_script.sh
           
-          # Run the script. It will now find the Clang tools via the PATH
+          # Run the script with explicit bash call
           bash build_script.sh SM-G9910 --ksu
           
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
           name: SM-G9910-xxKSU-Kernel
-          path: kernel_workspace/Lavender*.zip
+          # The zip is created in the root of the kernel_workspace folder
+          path: kernel_workspace/*.zip
 
       - name: Publish to GitHub Releases
         uses: softprops/action-gh-release@v2
         with:
-          files: kernel_workspace/Lavender*.zip
+          # Match the path used in the upload step
+          files: kernel_workspace/*.zip
           name: ${{ github.event.inputs.release_name }}
           tag_name: CI_${{ github.run_id }}
           body: |
