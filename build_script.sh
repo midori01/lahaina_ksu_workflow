@@ -9,7 +9,7 @@ K_MOD_DIR="$(pwd)/out/modules"
 
 # Enviorment Variables
 SRC_DIR=$(pwd)
-TC_DIR=$(pwd)/clang
+TC_DIR=${CLANG_PATH:-$(pwd)/clang}
 JOBS="$(nproc --all)"
 MAKE_PARAMS="-j$JOBS -C $SRC_DIR O=$SRC_DIR/out ARCH=arm64 CC=clang CLANG_TRIPLE=$TC_DIR/bin/aarch64-linux-gnu- LLVM=1 CROSS_COMPILE=$TC_DIR/bin/llvm-"
 export PATH="$TC_DIR/bin:$PATH"
