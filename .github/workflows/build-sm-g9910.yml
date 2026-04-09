@@ -34,7 +34,7 @@ jobs:
 
     steps:
     - name: Checkout
-      uses: actions/checkout@v4
+      uses: actions/checkout@v6
       with:
         lfs: true
 
@@ -59,7 +59,8 @@ jobs:
       run: |
         git clone https://github.com/LucasBlackLu/AnyKernel3.git -b samsung AK3
         git clone --depth=1 https://github.com/yapixel/kernel_patches.git -b dev yapixel_patches
-        git clone --depth=1 https://github.com/midori01/SM-G9910_Kernel common
+        git clone --depth=1 https://github.com/LucasBlackLu/android_kernel_samsung_sm8350 common
+        #git clone --depth=1 https://github.com/midori01/SM-G9910_Kernel common
         echo "kernel_dir=$PWD/common" >> $GITHUB_ENV
 
     - name: Clone SUSFS (v1.5.5)
