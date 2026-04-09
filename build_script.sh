@@ -68,8 +68,8 @@ if [ "$KSU" == "true" ]; then
     echo "Applying xxKSU manual hook patches..."
 
     curl -sSL "$PATCH_BASE/manual-security-hooks-v1.8.patch" -o /tmp/manual-security-hooks-v1.8.patch
-    if patch -p1 -d "$SRC_DIR/drivers/kernelsu" --dry-run < /tmp/manual-security-hooks-v1.8.patch &>/dev/null; then
-        patch -p1 -d "$SRC_DIR/drivers/kernelsu" < /tmp/manual-security-hooks-v1.8.patch
+    if patch -p1 -d "$SRC_DIR" --dry-run < /tmp/manual-security-hooks-v1.8.patch &>/dev/null; then
+        patch -p1 -d "$SRC_DIR" < /tmp/manual-security-hooks-v1.8.patch
         echo "Applied: manual-security-hooks-v1.8.patch"
     else
         echo "ERROR: manual-security-hooks-v1.8.patch failed dry-run, aborting!" >&2
