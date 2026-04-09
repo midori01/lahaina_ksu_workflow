@@ -36,7 +36,7 @@ fi
 
 mkdir -p "$SRC_DIR/out"
 
-make $MAKE_PARAMS "$DEFCONFIG_NAME" || exit 1
+make $MAKE_PARAMS "vendor/$DEFCONFIG_NAME" || exit 1
 make $MAKE_PARAMS || exit 1
 make $MAKE_PARAMS INSTALL_MOD_PATH=modules INSTALL_MOD_STRIP=1 modules_install || exit 1
 
