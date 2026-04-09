@@ -57,6 +57,7 @@ if [ "$KSU" == "true" ]; then
     # CONFIG_KSU_TAMPER_SYSCALL_TABLE is for <=4.14 only, not needed on sm8350 (5.4)
     # CONFIG_KSU_LSM_SECURITY_HOOKS not set — using manual hook patches instead
     echo "CONFIG_KSU=y"                                >> arch/arm64/configs/$DEFCONFIG
+    echo "# CONFIG_KSU_LSM_SECURITY_HOOKS is not set"  >> arch/arm64/configs/$DEFCONFIG
     echo "CONFIG_KSU_EXTRAS=y"                         >> arch/arm64/configs/$DEFCONFIG
     echo "CONFIG_KSU_THRONE_TRACKER_ALWAYS_THREADED=y" >> arch/arm64/configs/$DEFCONFIG
     sed -i 's/CONFIG_KPROBES=y/# CONFIG_KPROBES is not set/' arch/arm64/configs/$DEFCONFIG
