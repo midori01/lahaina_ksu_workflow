@@ -54,36 +54,30 @@ if [ "$KSU" == "true" ]; then
     fi
 
     # Inject xxKSU configs — pure manual hooks (KProbes disabled)
-    # CONFIG_KSU_TAMPER_SYSCALL_TABLE is for <=4.14 only, not needed on sm8350 (4.19+/5.4)
+    # CONFIG_KSU_TAMPER_SYSCALL_TABLE is for <=4.14 only, not needed on sm8350 (5.4)
     # CONFIG_KSU_LSM_SECURITY_HOOKS not set — using manual hook patches instead
     echo "CONFIG_KSU=y"                                >> arch/arm64/configs/$DEFCONFIG
     echo "CONFIG_KSU_EXTRAS=y"                         >> arch/arm64/configs/$DEFCONFIG
     echo "CONFIG_KSU_THRONE_TRACKER_ALWAYS_THREADED=y" >> arch/arm64/configs/$DEFCONFIG
     sed -i 's/CONFIG_KPROBES=y/# CONFIG_KPROBES is not set/' arch/arm64/configs/$DEFCONFIG
 
-    # Apply xxKSU manual hook patches into drivers/kernelsu (scope-minimized v1.8 + v1.9)
-    # v1.8: execve, faccessat, newfstatat, reboot hooks
-    # v1.9: newfstat ret hook (needed since KProbes is disabled)
+    # Apply xxKSU manual hook patches
     PATCH_BASE="https://raw.githubusercontent.com/yapixel/kernel_patches/dev/midorisu"
     echo "Applying xxKSU manual hook patches..."
 
     curl -sSL "$PATCH_BASE/manual-security-hooks-v1.8.patch" -o /tmp/manual-security-hooks-v1.8.patch
-    if patch -p1 -d "$SRC_DIR" --dry-run < /tmp/manual-security-hooks-v1.8.patch &>/dev/null; then
-        patch -p1 -d "$SRC_DIR" < /tmp/manual-security-hooks-v1.8.patch
-        echo "Applied: manual-security-hooks-v1.8.patch"
-    else
-        echo "ERROR: manual-security-hooks-v1.8.patch failed dry-run, aborting!" >&2
+    patch -p1 -d "$SRC_DIR" --fuzz=3 --ignore-whitespace < /tmp/manual-security-hooks-v1.8.patch || {
+        echo "ERROR: manual-security-hooks-v1.8.patch failed, aborting!" >&2
         exit 1
-    fi
+    }
+    echo "Applied: manual-security-hooks-v1.8.patch"
 
     curl -sSL "$PATCH_BASE/scope-min-manual-hooks-v1.9.patch" -o /tmp/scope-min-manual-hooks-v1.9.patch
-    if patch -p1 -d "$SRC_DIR" --dry-run < /tmp/scope-min-manual-hooks-v1.9.patch &>/dev/null; then
-        patch -p1 -d "$SRC_DIR" < /tmp/scope-min-manual-hooks-v1.9.patch
-        echo "Applied: scope-min-manual-hooks-v1.9.patch"
-    else
-        echo "ERROR: scope-min-manual-hooks-v1.9.patch failed dry-run, aborting!" >&2
+    patch -p1 -d "$SRC_DIR" --fuzz=3 --ignore-whitespace < /tmp/scope-min-manual-hooks-v1.9.patch || {
+        echo "ERROR: scope-min-manual-hooks-v1.9.patch failed, aborting!" >&2
         exit 1
-    fi
+    }
+    echo "Applied: scope-min-manual-hooks-v1.9.patch"
 
 elif [ "$KSU" == "false" ]; then
     echo "KSU disabled"
