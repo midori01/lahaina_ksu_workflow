@@ -34,29 +34,37 @@ jobs:
           wget https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/refs/heads/main/clang-r530567.tar.gz -O aosp-clang.tar.gz
           mkdir clang && tar -xf aosp-clang.tar.gz -C clang && rm -rf aosp-clang.tar.gz
           
-      - name: Make Script Executable
-        run: chmod +x ./build_script.sh
-
+      - name: Clone Kernel Source
+        run: |
+          # Swapped to your new LucasBlackLu repository
+          git clone --depth=1 https://github.com/LucasBlackLu/android_kernel_samsung_sm8350 kernel_workspace
+          
       - name: Build Kernel With xxKSU
         run: |
-          # Pass the target device and the KSU flag to your script
+          # Make the script executable
+          chmod +x ./build_script.sh
+          # Move the script into the kernel source directory
+          cp ./build_script.sh kernel_workspace/
+          # Enter the directory and run the build
+          cd kernel_workspace
           ./build_script.sh SM-G9910 --ksu
           
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
           name: SM-G9910-xxKSU-Kernel
-          path: Lavender*.zip
+          path: kernel_workspace/Lavender*.zip
 
       - name: Publish to GitHub Releases
         uses: softprops/action-gh-release@v2
         with:
-          files: Lavender*.zip
+          files: kernel_workspace/Lavender*.zip
           name: ${{ github.event.inputs.release_name }}
           tag_name: CI_${{ github.run_id }}
           body: |
             Device: SM-G9910 (Snapdragon)
             Variant: xxKSU
             Compiler: AOSP clang-r530567
+            Source: LucasBlackLu/android_kernel_samsung_sm8350
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
