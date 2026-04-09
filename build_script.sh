@@ -77,8 +77,8 @@ if [ "$KSU" == "true" ]; then
     fi
 
     curl -sSL "$PATCH_BASE/scope-min-manual-hooks-v1.9.patch" -o /tmp/scope-min-manual-hooks-v1.9.patch
-    if patch -p1 -d "$SRC_DIR/drivers/kernelsu" --dry-run < /tmp/scope-min-manual-hooks-v1.9.patch &>/dev/null; then
-        patch -p1 -d "$SRC_DIR/drivers/kernelsu" < /tmp/scope-min-manual-hooks-v1.9.patch
+    if patch -p1 -d "$SRC_DIR" --dry-run < /tmp/scope-min-manual-hooks-v1.9.patch &>/dev/null; then
+        patch -p1 -d "$SRC_DIR" < /tmp/scope-min-manual-hooks-v1.9.patch
         echo "Applied: scope-min-manual-hooks-v1.9.patch"
     else
         echo "ERROR: scope-min-manual-hooks-v1.9.patch failed dry-run, aborting!" >&2
