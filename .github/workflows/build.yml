@@ -1,5 +1,4 @@
 name: Build SM-G9910 xxKSU Kernel
-
 on:
   workflow_dispatch:
     inputs:
@@ -7,13 +6,11 @@ on:
         description: "Release Title"
         required: true
         default: "SM-G9910 xxKSU Build"
-
 jobs:
   build_lavender:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
@@ -34,7 +31,6 @@ jobs:
           wget https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/refs/heads/main/clang-r530567.tar.gz -O aosp-clang.tar.gz
           mkdir -p ${{ github.workspace }}/clang
           tar -xf aosp-clang.tar.gz -C ${{ github.workspace }}/clang
-          # Set Paths for Global Access
           echo "${{ github.workspace }}/clang/bin" >> $GITHUB_PATH
           echo "CLANG_PATH=${{ github.workspace }}/clang" >> $GITHUB_ENV
           
@@ -44,26 +40,23 @@ jobs:
           
       - name: Build Kernel With xxKSU
         run: |
-          # Copy script to the kernel directory
           cp ./build_script.sh kernel_workspace/
-          
           cd kernel_workspace
           chmod +x build_script.sh
-          
-          # Run the script with explicit bash call
           bash build_script.sh SM-G9910 --ksu
+
+      - name: Move zip to workspace root
+        run: mv kernel_workspace/AnyKernel3/Lavender*.zip kernel_workspace/
           
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
           name: SM-G9910-xxKSU-Kernel
-          # The zip is created in the root of the kernel_workspace folder
           path: kernel_workspace/*.zip
 
       - name: Publish to GitHub Releases
         uses: softprops/action-gh-release@v2
         with:
-          # Match the path used in the upload step
           files: kernel_workspace/*.zip
           name: ${{ github.event.inputs.release_name }}
           tag_name: CI_${{ github.run_id }}
