@@ -7,7 +7,7 @@ on:
         required: true
         default: "SM-G9910 xxKSU Kernel"
 jobs:
-  build_lavender:
+  build_kernel:
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -61,7 +61,7 @@ jobs:
       - name: Publish to GitHub Releases
         uses: softprops/action-gh-release@v2
         with:
-          files: kernel_workspace/Lavender*.zip
+          files: kernel_workspace/Midori*.zip
           name: ${{ github.event.inputs.release_name }}
           tag_name: CI_${{ github.run_id }}
           body: |
