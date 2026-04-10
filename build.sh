@@ -88,6 +88,30 @@ elif [ "$KSU" == "false" ]; then
     fi
 fi
 
+cat <<EOF >> arch/arm64/configs/$DEFCONFIG
+CONFIG_TMPFS_XATTR=y
+CONFIG_TMPFS_POSIX_ACL=y
+CONFIG_IP_SET=y
+CONFIG_NETFILTER_XT_SET=y
+CONFIG_IP_SET_MAX=65534
+CONFIG_IP_SET_BITMAP_IP=y
+CONFIG_IP_SET_BITMAP_IPMAC=y
+CONFIG_IP_SET_BITMAP_PORT=y
+CONFIG_IP_SET_HASH_IP=y
+CONFIG_IP_SET_HASH_IPMARK=y
+CONFIG_IP_SET_HASH_IPPORT=y
+CONFIG_IP_SET_HASH_IPPORTIP=y
+CONFIG_IP_SET_HASH_IPPORTNET=y
+CONFIG_IP_SET_HASH_IPMAC=y
+CONFIG_IP_SET_HASH_MAC=y
+CONFIG_IP_SET_HASH_NETPORTNET=y
+CONFIG_IP_SET_HASH_NET=y
+CONFIG_IP_SET_HASH_NETNET=y
+CONFIG_IP_SET_HASH_NETPORT=y
+CONFIG_IP_SET_HASH_NETIFACE=y
+CONFIG_IP_SET_LIST_SET=y
+EOF
+
 make $MAKE_PARAMS $DEFCONFIG
 make $MAKE_PARAMS
 make $MAKE_PARAMS INSTALL_MOD_PATH=modules INSTALL_MOD_STRIP=1 modules_install
@@ -116,7 +140,7 @@ if [ -d "AnyKernel3" ]; then
     zip -r9 $ZIP_NAME . -x '*.git*' '*patch*' '*ramdisk*' 'LICENSE' 'README.md'
     cd ..
 else
-    git clone https://github.com/LucasBlackLu/AnyKernel3 -b samsung
+    git clone https://github.com/midori01/AnyKernel3 -b samsung
     if [ -d "AnyKernel3/modules" ]; then
         rm -rf AnyKernel3/modules/
         mkdir AnyKernel3/modules/
