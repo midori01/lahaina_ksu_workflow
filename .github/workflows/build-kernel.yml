@@ -1,11 +1,11 @@
-name: Build SM-G9910 Kernel
+name: Build SM-G9910 Kernel with MidoriSU
 on:
   workflow_dispatch:
     inputs:
       release_name:
         description: "Release Title"
         required: true
-        default: "MidoriXX"
+        default: "MidoriSU"
 jobs:
   build_kernel:
     runs-on: ubuntu-latest
@@ -36,7 +36,7 @@ jobs:
           
       - name: Clone Kernel Source
         run: |
-          git clone --depth=1 https://github.com/LucasBlackLu/android_kernel_samsung_sm8350 kernel_workspace
+          git clone --depth=1 https://github.com/midori01/android_kernel_samsung_sm8350 kernel_workspace
           
       - name: Build Kernel With xxKSU
         run: |
