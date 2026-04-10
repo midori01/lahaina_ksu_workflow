@@ -62,8 +62,8 @@ jobs:
           tag_name: CI_${{ github.run_id }}
           body: |
             Device: SM-G9910 (o1q)
-            Variant: MidoriXX (xxKSU)
+            Variant: MidoriSU (xxKSU driver + KowSU manager)
             Compiler: AOSP clang-r530567
-            Source: LucasBlackLu/android_kernel_samsung_sm8350
+            Source: midori01/android_kernel_samsung_sm8350
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
