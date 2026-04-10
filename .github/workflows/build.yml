@@ -28,7 +28,7 @@ jobs:
           
       - name: Fetch AOSP Clang
         run: |
-          wget https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/refs/heads/main/clang-r530567.tar.gz -O aosp-clang.tar.gz
+          wget https://github.com/midori01/lahaina_ksu_workflow/raw/refs/heads/main/tools/linux-x86-refs_heads_main-clang-r530567.tar.gz -O aosp-clang.tar.gz
           mkdir -p ${{ github.workspace }}/clang
           tar -xf aosp-clang.tar.gz -C ${{ github.workspace }}/clang
           echo "${{ github.workspace }}/clang/bin" >> $GITHUB_PATH
