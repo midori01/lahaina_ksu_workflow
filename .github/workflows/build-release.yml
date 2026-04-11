@@ -18,7 +18,7 @@ on:
           - SM-G990B
           - SM-G990B2
       enable_ksu:
-        description: "Build with KernelSU (xxKSU)"
+        description: "MidoriSU"
         required: true
         type: boolean
         default: true
