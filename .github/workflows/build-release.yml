@@ -93,9 +93,25 @@ jobs:
 
           if [ "$KSU" == "true" ]; then
               ZIP_NAME="Midori_KSU_${DEVICE_NAME}_${DEVICE_MODEL}_$(date +%d%m%y-%H%M)"
-          
-              echo "KernelSU not found ! Fetching ...."
-              curl -LSs "https://raw.githubusercontent.com/MidoriKSU/KernelSU/main/kernel/setup.sh" | bash -s main
+              
+              curl -LSs "https://raw.githubusercontent.com/MidoriKSU/KernelSU/main/kernel/setup.sh" -o ksu_setup.sh
+              sed -i 's|https://github.com/backslashxx/KernelSU|https://github.com/MidoriKSU/KernelSU|g' ksu_setup.sh
+              bash ksu_setup.sh main
+              
+              if [ -f "KernelSU/kernel/manager/apk_sign.c" ]; then
+                  sed -i 's/unsigned char buffer\[0x11\] = { 0 };/return true;\n\tunsigned char buffer[0x11] = { 0 };/g' KernelSU/kernel/manager/apk_sign.c
+                  sed -i '/bool is_manager_apk(char \*path)/,$d' KernelSU/kernel/manager/apk_sign.c
+                  echo -e 'bool is_manager_apk(char *path)\n{\n\tchar pkg[KSU_MAX_PACKAGE_NAME];\n\tif (get_pkg_from_apk_path(pkg, path) < 0) {\n\t\treturn false;\n\t}\n\treturn strcmp(pkg, "com.midori.supermanager") == 0;\n}' >> KernelSU/kernel/manager/apk_sign.c
+              fi
+
+              git clone --bare https://github.com/midori01/KernelSU.git /tmp/midori01_ksu
+              COMMIT_COUNT=$(git -C /tmp/midori01_ksu rev-list --count HEAD)
+              rm -rf /tmp/midori01_ksu
+              NEW_KSU_VERSION=$((30000 + COMMIT_COUNT))
+              echo "[+] Dynamic KSU_VERSION calculated: $NEW_KSU_VERSION"
+              if [ -f "KernelSU/kernel/Makefile" ]; then
+                  sed -i "s/-DKSU_VERSION=[0-9]*/-DKSU_VERSION=$NEW_KSU_VERSION/g" KernelSU/kernel/Makefile
+              fi
           
               echo "CONFIG_KSU=y"                                >> arch/arm64/configs/$DEFCONFIG
               echo "# CONFIG_KSU_LSM_SECURITY_HOOKS is not set"  >> arch/arm64/configs/$DEFCONFIG
